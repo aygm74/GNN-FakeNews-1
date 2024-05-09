@@ -142,7 +142,7 @@ class Encoder(nn.Module):
         self.layers = layers
         self.norm = LayerNormalization()
 
-    #Forward
+    #Forward M
     def forward(self, x, mask):
         for layer in self.layers:
             x = layer(x, mask)

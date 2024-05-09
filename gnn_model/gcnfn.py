@@ -9,6 +9,15 @@ from torch_geometric.nn import DataParallel
 from torch.nn import Linear
 from torch_geometric.nn import global_mean_pool, GATConv
 
+import argparse
+import time
+import sys
+import os
+
+# Add the parent directory of the current script to the path
+current_script_directory = os.path.dirname(os.path.realpath(__file__))
+parent_directory = os.path.abspath(os.path.join(current_script_directory, os.pardir))
+sys.path.append(parent_directory)
 from utils.data_loader import *
 from utils.eval_helper import *
 
@@ -95,7 +104,7 @@ parser = argparse.ArgumentParser()
 
 # original model parameters
 parser.add_argument('--seed', type=int, default=777, help='random seed')
-parser.add_argument('--device', type=str, default='cuda:0', help='specify cuda devices')
+parser.add_argument('--device', type=str, default='cpu', help='specify cuda devices')
 
 # hyper-parameters
 parser.add_argument('--dataset', type=str, default='politifact', help='[politifact, gossipcop]')
@@ -106,19 +115,17 @@ parser.add_argument('--nhid', type=int, default=128, help='hidden size')
 parser.add_argument('--epochs', type=int, default=60, help='maximum number of epochs')
 parser.add_argument('--concat', type=bool, default=False, help='whether concat news embedding and graph embedding')
 parser.add_argument('--multi_gpu', type=bool, default=False, help='multi-gpu mode')
-parser.add_argument('--feature', type=str, default='spacy', help='feature type, [profile, spacy, bert, content]')
+parser.add_argument('--feature', type=str, default='bert', help='feature type, [profile, spacy, bert, content]')
 
 args = parser.parse_args()
 torch.manual_seed(args.seed)
 if torch.cuda.is_available():
 	torch.cuda.manual_seed(args.seed)
-
+args.concat = True
 dataset = FNNDataset(root='data', feature=args.feature, empty=False, name=args.dataset, transform=ToUndirected())
 
 args.num_classes = dataset.num_classes
 args.num_features = dataset.num_features
-
-print(args)
 
 num_training = int(len(dataset) * 0.2)
 num_val = int(len(dataset) * 0.1)

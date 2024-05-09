@@ -158,8 +158,6 @@ dataset = FNNDataset(root='data/', feature=args.feature, empty=False, name=args.
 args.num_classes = dataset.num_classes
 args.num_features = dataset.num_features
 
-print(args)
-
 num_training = int(len(dataset) * 0.2)
 num_val = int(len(dataset) * 0.1)
 num_test = len(dataset) - (num_training + num_val)

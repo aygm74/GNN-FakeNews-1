@@ -1,5 +1,13 @@
 import argparse
 import time
+import sys
+import os
+
+# Add the parent directory of the current script to the path
+current_script_directory = os.path.dirname(os.path.realpath(__file__))
+parent_directory = os.path.abspath(os.path.join(current_script_directory, os.pardir))
+sys.path.append(parent_directory)
+
 from tqdm import tqdm
 import copy as cp
 
@@ -11,7 +19,7 @@ from torch.utils.data import random_split
 from torch_geometric.data import DataLoader, DataListLoader
 
 
-from utils.data_loader import *
+from utils.data_loader import * 
 from utils.eval_helper import *
 
 
@@ -89,7 +97,7 @@ def compute_test(loader, verbose=False):
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--seed', type=int, default=777, help='random seed')
-parser.add_argument('--device', type=str, default='cuda:0', help='specify cuda devices')
+parser.add_argument('--device', type=str, default='cpu', help='specify cuda devices')
 
 # hyper-parameters
 parser.add_argument('--dataset', type=str, default='politifact', help='[politifact, gossipcop]')
@@ -114,11 +122,13 @@ dataset = FNNDataset(root='data', feature=args.feature, empty=False, name=args.d
 args.num_classes = dataset.num_classes
 args.num_features = dataset.num_features
 
-print(args)
-
 num_training = int(len(dataset) * 0.2)
+print(num_training)
 num_val = int(len(dataset) * 0.1)
+print(num_val)
 num_test = len(dataset) - (num_training + num_val)
+print(num_test)
+print(dataset.slices)
 training_set, validation_set, test_set = random_split(dataset, [num_training, num_val, num_test])
 
 if args.multi_gpu:

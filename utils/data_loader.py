@@ -25,18 +25,32 @@ def split(data, batch):
 	PyG util code to create graph batches
 	"""
 
-	node_slice = torch.cumsum(torch.from_numpy(np.bincount(batch)), 0)
+	node_slice = torch.cumsum(torch.from_numpy(np.bincount(batch)), 0) # this is sourc node in subgraph means that from which node subgraph start in a.txt file
+	# print(f"node slice 1 is {batch[500:1000]}")
 	node_slice = torch.cat([torch.tensor([0]), node_slice])
+	# print(f"node slice 2 is {node_slice}")
+	row, _ = data.edge_index #row is first column of a.txt file + self node edge as sorted
+	# print(f"row is {row[449:500]}")
+	# print(f"_ is {_[449:500]}")
 
-	row, _ = data.edge_index
-	edge_slice = torch.cumsum(torch.from_numpy(np.bincount(batch[row])), 0)
+	edge_slice = torch.cumsum(torch.from_numpy(np.bincount(batch[row])), 0) # number of last edge of every graph
+	print(f"batch[row] is {batch[row][449:500]}")# number of edge of graph
 	edge_slice = torch.cat([torch.tensor([0]), edge_slice])
-
+	# print(f"node slice is {edge_slice}")
 	# Edge indices should start at zero for every graph.
+	print(f"data edge index is {data.edge_index}")
+	print(f"node_slice[batch[row]] is {node_slice[batch[row]][990:1034]}")
 	data.edge_index -= node_slice[batch[row]].unsqueeze(0)
-	data.__num_nodes__ = torch.bincount(batch).tolist()
+	print(type(data.edge_index))
+	print(f"data edge index is {data.edge_index[0][990:1034]}")
 
+	print(f"data edge index is {data.edge_index[1][990:1034]}")
+
+
+	data.__num_nodes__ = torch.bincount(batch).tolist()
+	# print(f"node slice is {data.__num_nodes__}")				
 	slices = {'edge_index': edge_slice}
+	# print(f"slices is {slices}")# edge_slice is index of start edge of any subgraph
 	if data.x is not None:
 		slices['x'] = node_slice
 	if data.edge_attr is not None:
@@ -45,7 +59,10 @@ def split(data, batch):
 		if data.y.size(0) == batch.size(0):
 			slices['y'] = node_slice
 		else:
-			slices['y'] = torch.arange(0, batch[-1] + 2, dtype=torch.long)
+			slices['y'] = torch.arange(0, batch[-1] + 2, dtype=torch.long) #tensor of index every subgraph [0,1,2,3,..,314]
+			# print(slices['edge_index'])
+			# print(slices['x'])
+
 
 	return data, slices
 
@@ -54,26 +71,43 @@ def read_graph_data(folder, feature):
 	"""
 	PyG util code to create PyG data instance from raw graph data
 	"""
-
+	#load matrix (node , feature)	
 	node_attributes = sp.load_npz(folder + f'new_{feature}_feature.npz')
-	edge_index = read_file(folder, 'A', torch.long).t()
+	
+	#load edge matrix (node ,node)
+	edge_index = read_file(folder, 'A', torch.long).t() #example exist edge 0 to 1 and 0 to 2
+	
+	#load num of graph for every node
 	node_graph_id = np.load(folder + 'node_graph_id.npy')
+	#(314,)
 	graph_labels = np.load(folder + 'graph_labels.npy')
 
-
 	edge_attr = None
+
+	#sparse matrix to dense ->(41054,300)
 	x = torch.from_numpy(node_attributes.todense()).to(torch.float)
+	
+	#change to tensor as int
 	node_graph_id = torch.from_numpy(node_graph_id).to(torch.long)
 	y = torch.from_numpy(graph_labels).to(torch.long)
+	# print(f"y is {y}")
 	_, y = y.unique(sorted=True, return_inverse=True)
+	num_nodes = edge_index.max().item() + 1 if x is None else x.size(0) 
 
-	num_nodes = edge_index.max().item() + 1 if x is None else x.size(0)
 	edge_index, edge_attr = add_self_loops(edge_index, edge_attr)
+	#create matrix( num_nodes,num_nodes) with value edge attr
 	edge_index, edge_attr = coalesce(edge_index, edge_attr, num_nodes, num_nodes)
-
+	
 	data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, y=y)
+	# print(f"data is {data}")
+	# print(f"data num_node is {data.num_nodes}")
+	# print(f"data num_edges is {data.num_edges}")
+	# print(f"data data.num_node_features {data.num_node_features}")
+	# print(f"data to_dict is {data.to_dict}")
+	# print(f"data to_hetergeneous is {data.to_heterogeneous}")
 	data, slices = split(data, node_graph_id)
-
+	# print(f"data is {data}")
+	# print(f"slices is {slices}")
 	return data, slices
 
 
@@ -170,7 +204,8 @@ class FNNDataset(InMemoryDataset):
 		self.feature = feature
 		super(FNNDataset, self).__init__(root, transform, pre_transform, pre_filter)
 		if not empty:
-			self.data, self.slices, self.train_idx, self.val_idx, self.test_idx = torch.load(self.processed_paths[0])
+
+			self.data, self.slices= torch.load(self.processed_paths[0])
 
 	@property
 	def raw_dir(self):
@@ -219,11 +254,12 @@ class FNNDataset(InMemoryDataset):
 
 		# The fixed data split for benchmarking evaluation
 		# train-val-test split is 20%-10%-70%
-		self.train_idx = torch.from_numpy(np.load(self.raw_dir + 'train_idx.npy')).to(torch.long)
-		self.val_idx = torch.from_numpy(np.load(self.raw_dir + 'val_idx.npy')).to(torch.long)
-		self.test_idx = torch.from_numpy(np.load(self.raw_dir + 'test_idx.npy')).to(torch.long)
+			
+		# self.train_idx = torch.from_numpy(np.load(self.raw_dir + 'train_idx.npy')).to(torch.long)
+		# self.val_idx = torch.from_numpy(np.load(self.raw_dir + 'val_idx.npy')).to(torch.long)
+		# self.test_idx = torch.from_numpy(np.load(self.raw_dir + 'test_idx.npy')).to(torch.long)
 
-		torch.save((self.data, self.slices, self.train_idx, self.val_idx, self.test_idx), self.processed_paths[0])
+		torch.save((self.data, self.slices), self.processed_paths[0])
 
 	def __repr__(self):
 		return '{}({})'.format(self.name, len(self))
